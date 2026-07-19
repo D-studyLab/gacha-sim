@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1万人ガチャシミュレータ｜「平均90連」の裏にある地獄と天国を体感する</title>
+<style>
+  :root { --bg:#0f1216; --panel:#171b21; --line:#2a323c; --txt:#e6e9ee; --sub:#9aa4b1;
+          --acc:#7cc4ff; --good:#6bdf9a; --bad:#ff9b8a; --gold:#ffcf6b; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f4f6f8; --panel:#fff; --line:#dde3ea; --txt:#1b2027; --sub:#5b6673;
+            --acc:#1f6fb2; --good:#1f8a52; --bad:#c0492f; --gold:#a6791b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:"Segoe UI","Yu Gothic UI",Meiryo,sans-serif; line-height:1.7; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 8px 0 2px; }
+  .sub { color: var(--sub); font-size: 13px; margin-bottom: 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .panel h2 { font-size: 14px; margin: 0 0 10px; color: var(--sub); }
+  .ctrl { display: grid; grid-template-columns: 11em 1fr 5.5em; gap: 8px 12px; align-items: center; font-size: 14px; }
+  input[type=range] { width: 100%; }
+  .val { text-align: right; color: var(--gold); font-weight: bold; }
+  button { background: var(--acc); color: #fff; border: 0; border-radius: 10px; padding: 10px 20px; font-size: 15px; cursor: pointer; }
+  canvas { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; text-align: center; }
+  .stat { flex: 1 1 130px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  .stat b { display: block; font-size: 20px; }
+  .stat small { color: var(--sub); font-size: 11px; }
+  .g { color: var(--good); } .b { color: var(--bad); } .y { color: var(--gold); }
+  .note { font-size: 12px; color: var(--sub); margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎰 1万人ガチャシミュレータ</h1>
+  <div class="sub">「排出率1%＝100連で出る」ではない。1万人が同時に引いたら何が起きるかを体感する（計算はすべてブラウザ内）。</div>
+
+  <div class="panel">
+    <h2>条件（触って変えると即再計算）</h2>
+    <div class="ctrl">
+      <div>排出率（ピックアップ）</div><input type="range" id="rate" min="0.1" max="5" step="0.1" value="1"><div class="val"><span id="rateV">1.0</span>%</div>
+      <div>天井（保証）</div><input type="range" id="pity" min="0" max="300" step="10" value="200"><div class="val"><span id="pityV">200</span>連</div>
+      <div>1連の価格</div><input type="range" id="cost" min="100" max="500" step="10" value="300"><div class="val"><span id="costV">300</span>円</div>
+    </div>
+    <div style="margin-top:10px; text-align:center"><button id="run">🎲 1万人が引く</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>結果：出るまでに何連かかった？（1万人の分布）</h2>
+    <canvas id="hist" width="860" height="300"></canvas>
+    <div class="stats" id="stats" style="margin-top:10px"></div>
+    <div id="story" style="font-size:14px; margin-top:10px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>なぜ「平均」を信じてはいけないか</h2>
+    <div style="font-size:14px">
+      排出率p%のガチャでN連以内に出る確率は <b>1−(1−p)<sup>N</sup></b>。p=1%なら100連で <b>63%</b>——つまり<b>3人に1人は100連で出ない</b>。
+      期待値（平均）は「運のいい人」が引き下げた数字で、あなたの体験を保証しない。設計者が天井を付けるのは、この右側の長い尾（悲劇ゾーン）を切り落とすため。
+      天井スライダーを0にして、尾がどこまで伸びるか見てみてほしい。
+    </div>
+  </div>
+
+  <div class="note">モンテカルロ法（1万試行・毎回引き直し）。実在のゲームの確率仕様とは無関係の教材デモ／適度に楽しむガチャはエンタメ、課金は計画的に／ D-studyLab（原理シリーズ）</div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+function sync() { $('rateV').textContent = (+$('rate').value).toFixed(1); $('pityV').textContent = $('pity').value === '0' ? 'なし' : $('pity').value; $('costV').textContent = $('cost').value; }
+['rate', 'pity', 'cost'].forEach(id => $(id).addEventListener('input', () => { sync(); run(); }));
+
+function simulate() {
+  const p = +$('rate').value / 100, pity = +$('pity').value, N = 10000;
+  const pulls = new Array(N);
+  for (let i = 0; i < N; i++) {
+    let n = 0;
+    while (true) { n++;
+      if (Math.random() < p) break;
+      if (pity > 0 && n >= pity) break;
+    }
+    pulls[i] = n;
+  }
+  pulls.sort((a, b) => a - b);
+  return pulls;
+}
+function pct(sorted, q) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))]; }
+function run() {
+  const cost = +$('cost').value, pity = +$('pity').value;
+  const s = simulate();
+  const mean = s.reduce((a, b) => a + b, 0) / s.length;
+  const med = pct(s, 0.5), lucky = pct(s, 0.10), unlucky = pct(s, 0.90), worst1 = pct(s, 0.99), max = s[s.length - 1];
+  const yen = n => n * cost >= 10000 ? `${Math.round(n * cost / 10000 * 10) / 10}万円` : `${n * cost}円`;
+  $('stats').innerHTML =
+    `<div class="stat"><small>ラッキー10%</small><b class="g">${lucky}連</b><small>${yen(lucky)}</small></div>` +
+    `<div class="stat"><small>中央値（半分の人）</small><b>${med}連</b><small>${yen(med)}</small></div>` +
+    `<div class="stat"><small>平均</small><b class="y">${mean.toFixed(1)}連</b><small>${yen(Math.round(mean))}</small></div>` +
+    `<div class="stat"><small>不運10%</small><b class="b">${unlucky}連</b><small>${yen(unlucky)}</small></div>` +
+    `<div class="stat"><small>悲劇の1%</small><b class="b">${worst1}連</b><small>${yen(worst1)}</small></div>`;
+  const atPity = pity > 0 ? s.filter(v => v >= pity).length : 0;
+  $('story').innerHTML =
+    `1万人中、<b class="g">1連で引いた強運</b>は ${s.filter(v => v === 1).length}人。` +
+    (pity > 0 ? `<b class="b">天井到達</b>は ${atPity}人（${(atPity/100).toFixed(1)}%）——天井がなければこの人たちはさらに沼っていた。` :
+      `天井なしの最悪ケースは <b class="b">${max}連（${yen(max)}）</b>。これが「尾」の恐ろしさ。`);
+  // histogram
+  const cv = $('hist'), g = cv.getContext('2d');
+  g.clearRect(0, 0, cv.width, cv.height);
+  const xmax = Math.max(pity > 0 ? pity : 0, pct(s, 0.995)), bins = 60, bw = cv.width / bins;
+  const counts = new Array(bins).fill(0);
+  for (const v of s) counts[Math.min(bins - 1, Math.floor(v / xmax * bins))]++;
+  const cmax = Math.max(...counts);
+  const css = getComputedStyle(document.documentElement);
+  for (let i = 0; i < bins; i++) {
+    const h = counts[i] / cmax * (cv.height - 40);
+    const binStart = i / bins * xmax, binEnd = (i + 1) / bins * xmax;
+    g.fillStyle = (med >= binStart && med < binEnd) ? css.getPropertyValue('--gold') :
+                  (binStart >= pct(s, 0.9) ? css.getPropertyValue('--bad') : css.getPropertyValue('--acc'));
+    g.fillRect(i * bw + 1, cv.height - 25 - h, bw - 2, h);
+  }
+  g.fillStyle = css.getPropertyValue('--sub'); g.font = '12px sans-serif';
+  for (let t = 0; t <= 4; t++) { const x = t / 4 * xmax; g.fillText(Math.round(x) + '連', t / 4 * cv.width, cv.height - 8); }
+  g.fillText('▲黄色=中央値 / 赤=不運ゾーン(上位10%)', 8, 14);
+}
+sync(); run();
+</script>
+</body>
+</html>
