@@ -132,5 +132,18 @@ function run() {
 }
 sync(); run();
 </script>
+
+<section id="about" style="border-top:1px solid var(--line);padding:22px 0 40px">
+  <div style="max-width:900px;margin:0 auto;padding:0 16px;line-height:1.9">
+    <h2 style="font-size:16.5px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--acc)">このゲームのルール</h2>
+    <p style="font-size:14px;margin:0 0 20px">排出率と引く回数を設定すると、仮想の1万人が一斉にガチャを回し、「お目当てが出るまでに何連かかったか」の分布グラフが表示されるシミュレーターです。「1%なら100連で出るはず」という素朴な期待に対して、早々に引き当てた幸運な人の山と、平均を大きく超えても出ない少数の不運な人が、同じ画面に同時に映し出されます。平均という一言がどれだけ個々の結果のばらつきを覆い隠すか、目で確かめられます。</p>
+    <h2 style="font-size:16.5px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--acc)">攻略のヒント</h2>
+    <p style="font-size:14px;margin:0 0 20px">見るべきは平均値ではなく分布の右端、つまり裾の重さです。排出率1%の期待値はおよそ100連ですが、半数の人はそれより早く出る一方で、300連を超えても出ない人が確実に一定割合いる——ここがガチャの怖さの本体です。天井（一定回数での確定入手）のオン・オフや排出率をいろいろ変えて引き直してみると、どの条件が分布の裾を断ち切るのかが見えてきます。</p>
+    <h2 style="font-size:16.5px;margin:0 0 8px;padding-left:10px;border-left:4px solid var(--acc)">つくった理由・仕掛け</h2>
+    <p style="font-size:14px;margin:0 0 20px">「平均90連」という表現の裏には、必ず平均を超えて出ない人がいます。その振れ幅を隠さず見せて、確率を正しく怖がれるようになってほしい——そんな動機で確率教材シリーズの一本として作りました。内部はモンテカルロ法で、1万試行を毎回独立に引き直すため、実行のたびに分布が少しずつ変わります。特定のゲームの仕様とは無関係の抽象モデルで、計算はブラウザ内で完結し外部送信もありません。</p>
+    <p style="font-size:13px;color:var(--sub);margin:0">もっと詳しい遊び方 → <a href="https://d-studylab.com/games/guide/gacha-sim.html" style="color:var(--acc)">1万人ガチャシミュレータの解説ページ</a><br>ほかのゲーム → <a href="https://d-studylab.com/games/" style="color:var(--acc)">ミニゲームゲームズ一覧</a></p>
+  </div>
+</section>
+
 </body>
 </html>
