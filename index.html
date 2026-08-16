@@ -111,6 +111,7 @@ function pct(sorted, q) { return sorted[Math.min(sorted.length - 1, Math.floor(s
 function run() {
   const cost = +$('cost').value, pity = +$('pity').value;
   const s = simulate();
+  if (window.SND) SND.win();            // 1万人ぶんのシミュレーションが終わったところ
   const mean = s.reduce((a, b) => a + b, 0) / s.length;
   const med = pct(s, 0.5), lucky = pct(s, 0.10), unlucky = pct(s, 0.90), worst1 = pct(s, 0.99), max = s[s.length - 1];
   const yen = n => n * cost >= 10000 ? `${Math.round(n * cost / 10000 * 10) / 10}万円` : `${n * cost}円`;
@@ -144,6 +145,9 @@ function run() {
   for (let t = 0; t <= 4; t++) { const x = t / 4 * xmax; g.fillText(Math.round(x) + '連', t / 4 * cv.width, cv.height - 8); }
   g.fillText('▲黄色=中央値 / 赤=不運ゾーン(上位10%)', 8, 14);
 }
+// 「🎲 1万人が引く」ボタンに何も繋がっておらず、押しても引き直されなかった。
+// スライダーを動かしたときしか再計算されない状態だった（2026-08-16 に発見して修正）。
+$('run').addEventListener('click', run);
 sync(); run();
 </script>
 
@@ -374,13 +378,29 @@ sync(); run();
      各ゲームは作りがばらばらなので、まず「押したら鳴る」だけを
      イベント委譲でまとめて付ける。ゲーム固有の音（正解・勝敗）は
      そのゲームの中から SND.ok() などを呼んで足す。            */
+  var CLICKABLE = "button,[role=button],.btn,a[href],summary," +
+                  "input[type=button],input[type=submit],label,[onclick]";
+
+  /** これは押せるものか。
+      ⚠ セレクタだけでは足りない。モンティホールのドアのように
+         <div class="door"> に onclick を **JSから** 付けている作りが多く、
+         その場合 [onclick] 属性は無い。実際 2026-08-16 に取りこぼした。
+         → 祖先を数段さかのぼって、onclick を持つか cursor:pointer かで判断する。 */
+  function isClickable(t) {
+    if (t.closest(CLICKABLE)) return true;
+    for (var el = t, i = 0; el && el.nodeType === 1 && i < 5; el = el.parentElement, i++) {
+      if (el.onclick) return true;
+      try { if (getComputedStyle(el).cursor === "pointer") return true; } catch (e) {}
+    }
+    return false;
+  }
+
   function autoWire() {
     document.addEventListener("pointerdown", function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
       if (t.closest("#dslSndBtn")) return;                    // トグル自身は二重に鳴らさない
-      if (t.closest("button,[role=button],.btn,a[href],summary,input[type=button],input[type=submit],label"))
-        SND.click();
+      if (isClickable(t)) SND.click();
     }, true);
     document.addEventListener("keydown", function (e) {
       if (e.repeat) return;
